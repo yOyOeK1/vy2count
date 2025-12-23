@@ -1,0 +1,15 @@
+{
+  "name": "vy2count",
+  "version": "1.0.0",
+  "description": "- `websocat` https://github.com/vi/websocat/releases",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Bartłomiej Ceglik <yoyoek@wp.pl>",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
