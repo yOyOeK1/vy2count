@@ -2,31 +2,38 @@
 
 Two split bash tasks over multiple Agents a.k.a. Clustering. Bash tasks over multiple computers to `count` / process data.
 
+## Dependency
+
+* bash / linux shell access
+* nodejs, ws
+
 ## Agent
 
-To start it as websocket gate to receive and send information's to Agent.
+To start it as websocket gate to receive / send information's / data / tasks to Agent and back.
 
 ```bash
 node ./agent.js "local"
 ```
 
-##### commands @ws
+where `local` is one of example agents define in config file.
+
+##### Configuring
+
+All need to be done over file `Aconfig.js` It have list of Agents to work with. It's self explanatory json file.
+Agents need to be with `ssh` access and they should have exchange with Master `id_rsa....pub` key to log in with out password.
+Main communication is done over dedicated WS channel. Ssh access is only to send data or execute extra command.
+
+##### Commands @ws
 
 - ? | h
 
-- @R
+- @R - force agent raport to Master
 
-- @W
+- @W - spit out all list of workspacesy and ther current status
 
-- +W:name
+- +W:name - create new work named `name`
 
-- E:cmd
-
-##### configuring
-
-All need to be done over file `Aconfig.js` It have list of Agents to work with. It's self explanatory json file.
-Agents need to be with `ssh` access and they should have exchange with Master id_rsa....pub key to log in with out password.
-Main communication is done over dedicated WS channel. Ssh access is only to send data or execute extra command.
+- E:cmd - execute command at Agent
 
 ## Master
 
@@ -36,16 +43,15 @@ Using websocat as wscat aliased in this case. To send some data / message's to A
 wscat ws://localhost:8090
 ```
 
+after estabilshing connection you cent prompt Agent with commands ...
 
+## changlog
 
-
-### changlog
 251223 - it's hard first commit
-
 
 ---
 
-### notes
+#### notes
 
 - `websocat` https://github.com/vi/websocat/releases
 
@@ -69,6 +75,6 @@ wscat ws://localhost:8090
   websocat -s 8081 sh-c:"exec bash -c ./s.sh"
   ```
 
-
 ---
+
 If you see that this makes sense [ send me a ☕ ](https://ko-fi.com/B0B0DFYGS) | [Master repository](https://github.com/yOyOeK1/oiyshTerminal) | [About SvOiysh](https://www.youtube.com/@svoiysh)  
