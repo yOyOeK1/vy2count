@@ -13,6 +13,24 @@ function l(msg){
     console.log( msg );
 }
 
+function isPidRunning(pid) {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (error) {
+        if (error.code === 'ESRCH') {
+            return false;
+        }
+        if (error.code === 'EPERM') {
+            return true;
+        }
+        console.error(`# Error checking PID ${pid}: ${error.message}`);
+        return false;
+    }
+}
+
+
+
 
 //l(['args ',process.argv.length]);
 if( process.argv.length <= 2 ){
@@ -38,36 +56,56 @@ let wss = getWs( '0.0.0.0', agent.wsPort, (wsClient, onMsg) =>{
     cmdSCount++;
 
     //l(['wsMessage('+cmdSCount+'):', mStr]);
+    /*
+E:echo "tastk1.1"; sleep 5; echo "task1.2"; sleep 3; echo "task1.3"; sleep 3; echo "task1.4";
+E:echo "tastk2.1"; sleep 3; echo "task2.2"; sleep 2; echo "task2.3"; sleep 2; echo "task2.4"; 
+    */
 
-
-    let onSPMsg = ( msg ) => {
+    let onSPMsg = ( msg, cmdNo = -1 ) => {
         //l(['onSubProcessMesg ', msg]);
+        //wsClient.send( `#${cmdSCount} CMD_RES [${mStr}]\n#RES_START#\n[[${msg}]]\n#RES_END#` );
         
-        wsClient.send( `# CMD_RES [${mStr}]\n#RES_START#\n[[${msg}]]\n#RES_END#` );
+        //wsClient.send( `#R${cmdNo}\n#RES_START#\n[[${msg}]]\n#RES_END#` );
+        //(liteType = 'D', cNo = -1,  obj = undefined ) => {
+        wsClient.sendLine( 'R', cmdNo, {'cn':cmdNo, msg} );
     };
-    let onSPClose = ( msg ) => {
+
+    let onSPClose = ( msg, cmdNo = -1 ) => {
         //l(['onSubProcessMesg ', msg]);
+        //wsClient.send( `#C${cmdNo}\n#EXIT_CODE#${msg}` );
+        wsClient.sendLine( 'C', cmdNo, {'cn':cmdNo, 'exitCode':msg, entryDate:Date.now() } );
+        //console.log('comds in stock ',cmds.length);
         
-        wsClient.send( `# CMD_RES [${mStr}]\n#EXIT_CODE#${msg}` );
     };
 
 
 
     if( mStr == '@R' ){
+        
         let raport = {
             agent: agent.name,
-            cmdSCount, entryDate: Date.now(),
-            status: "ok"
+            cmdSCount, 
+            'cmds':btoa(JSON.stringify(cmds)),
+            status: "ok",
+            entryDate: Date.now(),
         };
         
         raportToBase( raport );
         //wsClient.send( JSON.stringify(raport,null,4) );
         onSPMsg( JSON.stringify(raport,null,4) );
+        console.log( JSON.stringify(raport,null,4) );
+        let cNr = 0;
+        cmds.forEach( c =>{
+            console.log( `#R_cmd${cNr++} running [${isPidRunning(c.pid)}]`, c );
+            
+        });
 
     }else if( mStr.startsWith('+W:') ) {
         let wDirPath = path.join( agent.workPath, 'vy2' );
         let wDir = undefined;
         
+        wsClient.send( `#E${cmdSCount} cmd [${mStr}] running [true]` );
+
         let nDirName = mStr.substring(3);
         if( nDirName == '' ){
             onSPMsg('wrong directory name ['+nDirName+']');
@@ -101,13 +139,16 @@ let wss = getWs( '0.0.0.0', agent.wsPort, (wsClient, onMsg) =>{
         let wDir = path.join( agent.workPath, 'vy2' );
         let wDirOk = false;
         let rDir = undefined
+
+        wsClient.send( `#E${cmdSCount} cmd [${mStr}] running [true]` );
+
         try{
             rDir = fs.readdirSync( wDir );
             wDirOk = true;
         }catch(e){
             l(`#error no target directory [${wDir}]`);
-            onSPMsg('working directory not existing. Try +W:nameOfProject');
-            onSPClose(-1);
+            onSPMsg('working directory not existing. Try +W:nameOfProject looking now at ['+wDir+']', cmdSCount);
+            onSPClose(-1, cmdSCount);
             return 1;
         }
         
@@ -116,32 +157,62 @@ let wss = getWs( '0.0.0.0', agent.wsPort, (wsClient, onMsg) =>{
             let dInfo = {
                 dirName: d,
                 dirname: wDir,
-                list: fs.readdirSync( path.join( wDir, d ) )
+                fsList: fs.readdirSync( path.join( wDir, d ) )
             };
 
             tr.push( JSON.stringify(dInfo) );
         });
 
-        onSPMsg(tr.join('\n'));
-        onSPClose(0);
+        onSPMsg(tr.join('\n'), cmdSCount);
+        onSPClose(0, cmdSCount);
 
     }else if( ['h', '?'].indexOf( mStr ) != -1  ){
         wsClient.send( `--- help --
             ? | h   - help 
             @R      - raport to base
             @W      - print working directory status
-            +W:name - create working directory with "name"
+            +W:nameW - create working directory with "name"
+            +B:nameW:nameF:base64 
+                    - to send binary as base64 with target working directory and name for file
             E:exec    - if string is send it will be executed  
             \n--- help ----`
 
         );
 
+    }else if( mStr.startsWith('+B:') ) {
+        let line = mStr.split(':');
+        let workDir = line[1];
+        let fileName = line[2];
+        let b64 = line[3];
+        wsClient.sendLine( 'E', cmdSCount, {'cn':cmdSCount, workDir, fileName, b64len:b64.length } );
+        console.log({ workDir, fileName, b64length:b64.length });
+
+        let dirPath = path.join( agent.workPath, 'vy2', workDir );
+        let dirOk = false;
+        try{
+            fs.readdirSync( dirPath );
+            dirOk = true;
+        }catch(e){}
+
+        let binData = Buffer.from(b64, 'base64');
+        let file = fs.writeFileSync( 
+            path.join( dirPath, fileName ), 
+            binData,
+            ee =>{
+                console.log('EE can\'t convert base64 correctly :(',ee);
+            }
+        );
+        onSPClose(0, cmdSCount);
+
 
     }else if( mStr.startsWith('E:') ) {
         let sph = new vy2subProcess( 'pwdTest1', onSPMsg, onSPClose );
-        sph.run( mStr.substring(2) );
+        sph.run( mStr.substring(2), cmdSCount );
+        //console.log('subProcess pid:', sph.sp.pid );
+        cmds.push( { cmdSCount, 'cmd':mStr.substring(2), pid: sph.sp.pid, /*'sp':sph,*/ placeStart: 4} );
         
-    
+        //wsClient.send( `#E${cmdSCount} cmd [${mStr.substring(2)}] pid [${sph.sp.pid}] running [${!sph.sp.killed}]` );
+        wsClient.sendLine( 'E', cmdSCount, {'cn':cmdSCount, cmd:mStr.substring(2), pid: sph.sp.pid, isRunning: !sph.sp.killed, entryDate:Date.now() } );
     /*
     }else if( mStr == 'ls' ){
         //l(['got ls']);
@@ -163,7 +234,8 @@ let wss = getWs( '0.0.0.0', agent.wsPort, (wsClient, onMsg) =>{
 
     
     
-});
+}
+);
 
 
 
@@ -175,8 +247,11 @@ let raportToBaseYYYNAN = ( OptsJson ) => {
     let sp = new vy2subProcess( 'raportToBase' );
     let oArray = [];
     Object.keys( OptsJson ).forEach( k => oArray.push( `${k}=${OptsJson[k]}` ) );
-    let curlVite = 'curl '+Baseconfig.urlRaport+' -X POST -d "'+oArray.join('&')+'";'
-    sp.run( 'ssh -T a@hu -p 2222 -o ExitOnForwardFailure=yes \''+curlVite+'\'' );
+    let curlVite = 'curl '+agent.userConfig.MasterURL+' -X POST -d "'+oArray.join('&')+'";'
+    let cmdRun = 'ssh -T a@hu -p 2222 -o ExitOnForwardFailure=yes \''+curlVite+'\'';
+    sp.run( cmdRun, cmdSCount );
+    cmds.push( { cmdSCount, 'cmd': cmdRun, pid: sp.sp.pid, /*sp,*/ placeStart: 2} );
+    //cmds.push( { cmdSCount, 'cmd':mStr.substring(2), pid: sph.sp.pid, 'sp':sph, placeStart: 4} );
 };
 
 
@@ -184,8 +259,11 @@ let raportToBase = ( OptsJson ) => {
     let sp = new vy2subProcess( 'raportToBase' );
     let oArray = [];
     Object.keys( OptsJson ).forEach( k => oArray.push( `${k}=${OptsJson[k]}` ) );
-    let curlVite = 'curl '+Baseconfig.urlRaport+' -s -X POST -d "'+oArray.join('&')+'";'
-    sp.run( curlVite );
+    let curlVite = 'curl '+agent.userConfig.MasterURL+' -s -X POST -d "'+oArray.join('&')+'";'
+    sp.run( curlVite, cmdSCount );
+    cmds.push( { cmdSCount, 'cmd': curlVite,pid: sp.sp.pid, /*sp,*/ placeStart: 1} );
+    //cmds.push( { cmdSCount, 'cmd':mStr.substring(2), pid: sph.sp.pid, 'sp':sph, placeStart: 4} );
+
 };
 
 

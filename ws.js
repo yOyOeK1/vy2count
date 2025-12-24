@@ -2,12 +2,19 @@ import { WebSocketServer } from 'ws'; // Import the server class
 
 
 
+
 let getWs = ( host = '0.0.0.0', port = 8090, onMsg = undefined ) => {
-    let wss = new WebSocketServer({ port }); // Create a WebSocket server on port 8080
+    let wss = new WebSocketServer({ port ,maxPayload: 1024*1024* 512}); // 512MB 
     
     wss.on('connection', function connection(ws) {
       console.log('#WS Client connected');
     
+
+      ws['sendLine'] = (liteType = 'D', cNo = -1,  obj = undefined ) => {
+        ws.send(`#${liteType}${cNo}#`+JSON.stringify(obj));
+      };
+
+
       ws.on('message', (data) => {
         if( onMsg ){
             onMsg( ws, data );

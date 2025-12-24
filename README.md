@@ -43,7 +43,52 @@ Using websocat as wscat aliased in this case. To send some data / message's to A
 wscat ws://localhost:8090
 ```
 
-after estabilshing connection you cent prompt Agent with commands ...
+after establishing connection you cent prompt Agent with commands ...
+
+##### Example commands
+
+From master or any where you connect to Agent. So in bash you can:
+
+- get instant agent **reports** about work space status and others info ...
+  
+  ```bash
+  a=`echo "@W" |./bin/wscat ws://localhost:8190 | grep "#R"`; echo $a | cut -d '#' -f 3 | jq -r .msg | jq .
+  ```
+  
+  **will return** 
+  
+  ```json
+  {
+  "dirName": "678",
+  "dirname": "/tmp/vy2",
+  "fsList": [
+    "a.png",
+    ....
+    "vi2.mp4"
+  ]
+  }
+  ...
+  {
+  "dirName": "task1",
+  "dirname": "/tmp/vy2",
+  "fsList": []
+  }
+  ```
+
+- **push data / file** to agent to work space
+  
+  ```bash
+  echo "+B:678:r3.md:`base64 -w 0 ./testAssets/README.md`" | ./bin/wscat ws://localhost:8190
+  ```
+  
+  `678` - working directory
+  `r3.md` - target name
+  
+  **OR**
+  
+  ```bash
+  echo "+B:678:vi2.mp4:`base64 -w 0 ~/Videos/WIRE\ ROPE\ HAND\ EYE\ SPLICE-    iDnhv1ObVhY.mp4`" | ./bin/wscat ws://localhost:8190
+  ```
 
 ## changlog
 
