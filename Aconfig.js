@@ -2,6 +2,7 @@ let Aconfig = [
     {
         "name": "local",
         "workPath": "/tmp", 
+        "wsIp": "192.168.43.220",
         "wsPort": 8190,   
         "userConfig":  {
 	        "name": "",
@@ -18,6 +19,7 @@ let Aconfig = [
    {
         "name": "yoyDel",
         "workPath": "/tmp", 
+        "wsIp": "192.168.43.220",
         "wsPort": 8090,   
         "userConfig":  {
 	        "name": "local",
@@ -33,6 +35,7 @@ let Aconfig = [
     {
         "name": "hu",
         "workPath": "/data/data/com.termux/files/usr/tmp",    
+        "wsIp": "192.168.43.1",
         "wsPort": 8091,
         "userConfig":  {
 	        "name": "hu",
